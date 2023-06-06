@@ -1,4 +1,4 @@
-import { LightningElement, api, track } from "lwc";
+import { LightningElement, api, track, wire } from "lwc";
 import getServiceAppointment from "@salesforce/apex/AppointmentController.getServiceAppointment";
 import getSlotsByAssignmentMethod from "@salesforce/apex/AppointmentController.getSlotsByAssignmentMethod";
 import getSchedulingPolicyId from "@salesforce/apex/AppointmentController.getSchedulingPolicyId";
@@ -13,7 +13,35 @@ import convertTimeToOtherTimeZone from "@salesforce/apex/AppointmentController.c
 import customLabels from "./labels";
 import { convertDateUTCtoLocal } from "c/mobileAppointmentBookingUtils";
 import getUserName from "@salesforce/apex/AppointmentController.getUserName";
+import { getRecord, notifyRecordUpdateAvailable } from "lightning/uiRecordApi";
+import ARRIVAL_WINDOW_START_FIELD from "@salesforce/schema/ServiceAppointment.ArrivalWindowStartTime";
+import ARRIVAL_WINDOW_END_FIELD from "@salesforce/schema/ServiceAppointment.ArrivalWindowEndTime";
+import PARENT_RECORD_FIELD from "@salesforce/schema/ServiceAppointment.ParentRecordId";
 
+const fields = [
+  ARRIVAL_WINDOW_START_FIELD,
+  ARRIVAL_WINDOW_END_FIELD,
+  PARENT_RECORD_FIELD
+];
+/*export default class Example extends LightningElement {
+    @api recordId;
+    // Wire a record
+    @wire(getRecord, { recordId: '$recordId', fields: ... })
+    record;
+ 
+    async handler() {
+      // Do something before the record is updated
+      showSpinner();
+
+      // Update the record via Apex
+      await apexUpdateRecord(this.recordId);
+
+      // Notify LDS that you've changed the record outside its mechanisms
+      // Await the Promise object returned by notifyRecordUpdateAvailable()
+      await notifyRecordUpdateAvailable([{recordId: this.recordId}]);
+      hideSpinner();
+    }
+}*/
 const assignmentMethod = {
   ASSIGN_TO_ME: "assignToMe",
   ASSIGN_TO_ANY_AVIALABLE: "assignToAnyAvailable"
@@ -23,6 +51,11 @@ export default class MobileAppointmentBookingLanding extends LightningElement {
   LABELS = customLabels;
   title = this.LABELS.Reschedule_Appointment_page_title;
   @api serviceAppointmentId;
+
+  // Wire a record
+  @wire(getRecord, { recordId: "$serviceAppointmentId", fields: fields })
+  record;
+
   previousServiceAppointmentId;
   @track currentAppointmentData;
   @api appointmentFields;
@@ -857,6 +890,10 @@ export default class MobileAppointmentBookingLanding extends LightningElement {
                         "c-mobile-appointment-booking-scheduling-container"
                       )
                       .handleSchedulingResponse(true);
+
+                    notifyRecordUpdateAvailable([
+                      { recordId: this.serviceAppointmentId }
+                    ]);
                   }
                 })
                 .catch((error) => {
